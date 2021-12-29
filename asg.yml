@@ -1,0 +1,491 @@
+Description:  This CloudFormation YAML file will provision a VPC
+
+Parameters:
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instance
+    Type: AWS::EC2::KeyPair::KeyName
+    Default: week-11-demo-key
+
+  InstanceType:
+    Description: EC2 instance type
+    Type: String
+    Default: t2.micro
+
+  EnvironmentName:
+    Description: An environment name that is prefixed to resource names
+    Type: String
+    Default: Development
+
+  VpcCIDR:
+    Description: Please enter the IP range (CIDR notation) for this VPC
+    Type: String
+    Default: "10.0.0.0/16"
+
+  PublicSubnet1CIDR:
+    Description: Please enter the IP range (CIDR notation) for the public subnet 1 in the first Availability Zone
+    Type: String
+    Default: "10.0.2.0/24"
+
+  PublicSubnet2CIDR:
+    Description: Please enter the IP range (CIDR notation) for the public subnet 2 in the first Availability Zone
+    Type: String
+    Default: "10.0.3.0/24"
+
+  PrivateSubnet1CIDR:
+    Description: Please enter the IP range (CIDR notation) for the private subnet 1 in the first Availability Zone
+    Type: String
+    Default: "10.0.4.0/24"
+
+  PrivateSubnet2CIDR:
+    Description: Please enter the IP range (CIDR notation) for the praive subnet 2 in the first Availability Zone
+    Type: String
+    Default: "10.0.5.0/24"
+
+  BastionSubnetCIDR:
+    Description: Bastion Subnet
+    Type: String
+    Default: "10.0.1.0/24"
+
+  Region:
+    Description: The Regions
+    Type: String
+    Default: "us-east-1"
+
+Mappings:
+  AWSRegionToAMI:
+    us-east-1:
+      AMIID: ami-0ed9277fb7eb570c9
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value:
+            Ref: EnvironmentName
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value:
+            Ref: EnvironmentName
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId:
+        Ref: InternetGateway
+      VpcId:
+        Ref: VPC
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: VPC
+      AvailabilityZone: !Select 
+        - 0
+        - !GetAZs 
+          Ref: Region  
+      CidrBlock:
+        Ref: PublicSubnet1CIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Public Subnet (AZ1)
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Public Routes
+
+  DefaultPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId:
+        Ref: PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId:
+        Ref: InternetGateway
+
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId:
+        Ref: PublicRouteTable
+      SubnetId:
+        Ref: PublicSubnet1
+
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: VPC
+      AvailabilityZone: !Select 
+        - 0
+        - !GetAZs 
+          Ref: Region  
+      CidrBlock:
+        Ref: PublicSubnet2CIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Public Subnet (AZ2)
+
+
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId:
+        Ref: PublicRouteTable
+      SubnetId:
+        Ref: PublicSubnet2
+
+  EIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+  
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId:
+        Fn::GetAtt:
+          - EIP
+          - AllocationId
+      SubnetId: !Ref PublicSubnet1
+
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: VPC
+      AvailabilityZone: !Select 
+        - 0
+        - !GetAZs 
+          Ref: Region  
+      CidrBlock: 
+        Ref: PrivateSubnet1CIDR
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Subnet (AZ1)
+     
+  
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: VPC
+      AvailabilityZone: !Select 
+        - 0
+        - !GetAZs 
+          Ref: Region  
+      CidrBlock: 
+        Ref: PrivateSubnet2CIDR
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Subnet (AZ2)
+
+
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties: 
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Routes 
+
+  PrivateDefaultRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: "0.0.0.0/0"
+      NatGatewayId: !Ref NatGateway
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateRouteSubnetAssociation1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet1
+
+  PrivateRouteSubnetAssociation2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet2
+
+
+  VPCEC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: only allow SSH traffic
+      GroupName: SG - 22
+      SecurityGroupIngress:
+      - CidrIp: 72.137.76.221/32
+        FromPort: 22
+        IpProtocol: tcp
+        ToPort: 22
+      - SourceSecurityGroupId: !Ref BastionSecurityGroup
+        FromPort: 22
+        IpProtocol: tcp
+        ToPort: 22
+      Tags:
+      -
+        Key: Name
+        Value: CloudFormationSecurityGroup
+      VpcId:
+        Ref: VPC
+    DependsOn: BastionSecurityGroup
+  
+  BastionSubnetID:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: VPC
+      AvailabilityZone: !Select 
+        - 0
+        - !GetAZs 
+          Ref: Region  
+      CidrBlock:
+        Ref: BastionSubnetCIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Bastion Subnet
+
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId:
+        Ref: PublicRouteTable
+      SubnetId:
+        Ref: BastionSubnetID
+
+  BastionSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: Enable SSH access via port 22
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: 72.137.76.221/32
+        - CidrIp: 0.0.0.0/0
+          FromPort: 80
+          IpProtocol: tcp
+          ToPort: 80
+        - CidrIp: 0.0.0.0/0
+          FromPort: 443
+          IpProtocol: tcp
+          ToPort: 443
+      Tags:
+        - Key: Name
+          Value: Bastion Security Group
+
+  BastionHost:
+    Type: AWS::EC2::Instance
+    Properties: 
+      ImageId: 
+        Fn::FindInMap:
+          - AWSRegionToAMI
+          - us-east-1
+          - AMIID
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      SubnetId: !Ref BastionSubnetID
+      SecurityGroupIds: 
+        - !Ref BastionSecurityGroup
+      Tags:
+        - Key: Name
+          Value: Bastion EC2
+
+
+  DeployAppLaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      ImageId: 
+        Fn::FindInMap:
+          - AWSRegionToAMI
+          - us-east-1
+          - AMIID
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      SecurityGroups:
+        - !Ref VPCEC2SecurityGroup
+      UserData:
+        Fn::Base64:
+          Fn::Sub: |
+            #!/bin/bash -xe
+            # Install Nginx
+            yum install httpd -y
+            # Enable and start service
+            systemctl enable httpd
+            systemctl start httpd
+            
+  DeployAppASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      DesiredCapacity: 2
+      LaunchConfigurationName: !Ref DeployAppLaunchConfig
+      MaxSize: 5
+      MinSize: 2
+      Tags:
+          - Key: Name
+            Value: AutoScalingGroup
+            PropagateAtLaunch: True
+    UpdatePolicy:
+      AutoScalingReplacingUpdate:
+        WillReplace: True  
+
+  
+  ScaleOutPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref DeployAppASG
+      ScalingAdjustment: '1'
+  CPUAlarmHigh:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      EvaluationPeriods: '1'
+      Statistic: Average
+      Threshold: '80'
+      AlarmDescription: Alarm if CPU too high or metric disappears indicating instance is down
+      Period: '60'
+      AlarmActions:
+      - !Ref ScaleOutPolicy
+      Namespace: AWS/EC2
+      Dimensions:
+      - Name: AutoScalingGroupName
+        Value:
+          Ref: DeployAppASG
+      ComparisonOperator: GreaterThanThreshold
+      MetricName: CPUUtilization
+
+  ScaleInPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref DeployAppASG
+      ScalingAdjustment: '1'
+  CPUAlarmHigh:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      EvaluationPeriods: '1'
+      Statistic: Average
+      Threshold: '20'
+      AlarmDescription: Alarm if CPU too low 
+      Period: '60'
+      AlarmActions:
+      - !Ref ScaleOutPolicy
+      Namespace: AWS/EC2
+      Dimensions:
+      - Name: AutoScalingGroupName
+        Value:
+          Ref: DeployAppASG
+      ComparisonOperator: LessThanThreshold
+      MetricName: CPUUtilization
+
+
+   
+
+Outputs:
+  VPC:
+    Description: A reference to the created VPC
+    Value:
+      Ref: VPC
+
+  PublicSubnet1:
+    Description: A reference to the public subnet in the 1st Availability Zone
+    Value:
+      Ref: PublicSubnet1
+
+  PublicSubnet2:
+    Description: A reference to the public subnet in the 1st Availability Zone
+    Value:
+      Ref: PublicSubnet2
+
+  PrivateSubnet1:
+    Description: A reference to the public subnet in the 1st Availability Zone
+    Value:
+      Ref: PrivateSubnet1
+
+  PrivateSubnet2:
+    Description: A reference to the public subnet in the 1st Availability Zone
+    Value:
+      Ref: PrivateSubnet2
+
+  InternetGateway:
+    Description: InternetGateway Information
+    Value:
+      Ref: InternetGateway
+
+  PublicRouteTable:
+    Description: Public Route Table Information
+    Value:
+      Ref: PublicRouteTable
+
+  NatGateway:
+    Description: NatGateway Information
+    Value:
+      Ref: NatGateway
+
+  PrivateRouteTable:
+    Description: Private Route Table Information
+    Value:
+      Ref: PrivateRouteTable
+
+  VPCEC2SecurityGroup:
+    Description: Security group with no ingress rule
+    Value:
+      Ref: VPCEC2SecurityGroup
+
+  DeployAppLaunchConfig:
+    Description: EC2 Configuration Information
+    Value:
+      Ref: DeployAppLaunchConfig
+
+  DeployAppASG:
+    Description: EC2 Auto Scaling Group Information
+    Value:
+      Ref: DeployAppASG
+
+  BastionHostDNS:
+    Description: Bastion host public DNS
+    Value: !GetAtt BastionHost.PublicDnsName
+
+  BastionPublicIPAddress:
+    Description: Bastion host public IP
+    Value: !GetAtt BastionHost.PublicIp
+
+  BastionSG:
+    Description: Bastion security group
+    Value: !Ref BastionSecurityGroup
+
+  ScaleInPolicy:
+    Description: Scaling in policy
+    Value: !Ref ScaleInPolicy
+
+  ScaleOutPolicy:
+    Description: Scaling in policy
+    Value: !Ref ScaleOutPolicy
+
+ 

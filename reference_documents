@@ -1,0 +1,50 @@
+Creating stack https://docs.aws.amazon.com/cli/latest/reference/cloudformation/create-stack.html
+aws cloudformation create-stack --stack-name week-11-demo --template-body file://asg.yml (in case you use aws profile, need to provide --profile <name of the profile>)
+
+Updating stack https://docs.aws.amazon.com/cli/latest/reference/cloudformation/update-stack.html
+aws cloudformation update-stack --stack-name week-11-demo --template-body file://asg.yml
+
+Deleting stack https://docs.aws.amazon.com/cli/latest/reference/cloudformation/delete-stack.html
+aws cloudformation delete-stack --stack-name week-11-demo
+
+Validating your yml or json file https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-validate-template.html
+aws cloudformation validate-template --template-body file://asg.yml
+
+A yaml validator https://codebeautify.org/yaml-validator
+
+A aws troubleshooting blog https://aws.amazon.com/premiumsupport/knowledge-center/cloudformation-template-validation/
+
+How to connect to a private instance via bastion on Windows or Mac & Linux
+https://docs.bitnami.com/aws-templates/infrastructure/lamp-production-ready/get-started/connect-ssh/
+or
+https://aws.amazon.com/blogs/security/securely-connect-to-linux-instances-running-in-a-private-amazon-vpc/
+
+How to use Fn::FindInMap - how to learn about CloudFormation
+https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-findinmap.html
+
+How to copy and paste without memorizing anything by referring to AWS CloudFormation documents
+https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/quickref-autoscaling.html
+
+How to have subnets calculated 
+https://www.davidc.net/sites/default/subnets/subnets.html
+
+Troubleshooting Could not open a connection to your authentication agent
+https://stackoverflow.com/questions/17846529/could-not-open-a-connection-to-your-authentication-agent
+eval `ssh-agent -s`
+
+AWS CloudFormation: SecurityGroup refers to another security group
+https://stackoverflow.com/questions/51410634/aws-cloudformation-securitygroup-refers-to-another-security-group/51410783
+
+Auto Scaling Group and Launch Config Reference
+https://www.agilepartner.net/en/aws-cloudformation-part-5/
+
+Installing stress tool on Amazon Linux 2
+https://gist.github.com/mikepfeiffer/d27f5c478bef92e8aff4241154b77e54
+
+sudo amazon-linux-extras install epel -y
+sudo yum install stress -y
+
+How to use stress tool
+https://www.cyberciti.biz/faq/stress-test-linux-unix-server-with-stress-ng/
+
+
