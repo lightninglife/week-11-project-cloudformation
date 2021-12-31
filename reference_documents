@@ -47,4 +47,4 @@ sudo yum install stress -y
 How to use stress tool
 https://www.cyberciti.biz/faq/stress-test-linux-unix-server-with-stress-ng/
 
-
+Make sure your ip address is provided in security group for port 22 
